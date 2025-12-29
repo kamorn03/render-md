@@ -5,13 +5,23 @@ import remarkGfm from 'remark-gfm'
 import './App.css'
 
 function normalizeMarkdown(source: string) {
-  return source.replace(/\n(\*\*ตอนที่)/g, '\n\n$1') // Fix TOC line breaks
+  return source
+    .replace(/\uFEFF|\u200B/g, '') // Remove BOM and zero-width spaces
+    .replace(/^[ \t]*[-*_]{3,}[ \t]*$/gm, '') // Remove horizontal rules (---, ***, ___) strictly
+    .replace(/\n(\*\*ตอนที่)/g, '\n\n$1') // Fix TOC line breaks
 }
 
 function splitIntoPages(source: string) {
-  // Split by the specific page-break div used in the markdown
-  return source.split(/<div\s+style=("|')page-break-after:\s*always;?("|')><\/div>/gi)
-    .filter(page => page.trim().length > 0 && page !== '"' && page !== "'") // Filter out empty splits and regex captures
+  // Split by page-break div, robust regex for various spacings
+  const parts = source.split(/<div\s+[^>]*style=['"][^'"]*page-break-after:\s*always[^'"]*['"][^>]*><\/div>/gi)
+  
+  return parts
+    .map((page) => page.trim())
+    .filter((page) => {
+      // Strict filter: Remove all whitespace and common HTML entities
+      const stripped = page.replace(/\s+/g, '').replace(/&nbsp;/g, '')
+      return stripped.length > 0
+    })
 }
 
 function App() {
@@ -154,6 +164,9 @@ function App() {
                   >
                     {pageContent}
                   </ReactMarkdown>
+                  <div className="page-number">
+                    หน้า {index + 1} / {pages.length}
+                  </div>
                 </div>
                 {/* Add a page break after every sheet except the last one */}
                 {index < pages.length - 1 && <div className="page-break" />}
